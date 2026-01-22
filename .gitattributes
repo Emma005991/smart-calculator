@@ -1,0 +1,10 @@
+
+*.dart linguist-language=Dart
+
+# Ignore platform code from language stats
+windows/** linguist-vendored
+linux/** linguist-vendored
+macos/** linguist-vendored
+ios/** linguist-vendored
+android/** linguist-vendored
+web/** linguist-vendored
