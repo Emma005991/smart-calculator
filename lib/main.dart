@@ -20,8 +20,16 @@ class _SmartCalculatorAppState extends State<SmartCalculatorApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
-      darkTheme: ThemeData.dark(useMaterial3: true),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.light,
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.dark,
+      ),
       home: MainNavigation(
         isDark: dark,
         onToggle: () => setState(() => dark = !dark),
@@ -82,7 +90,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-/* ---------- Calculator Home (Handles Basic & Scientific) ---------- */
+/* ---------- Calculator Home with History ---------- */
 
 class CalculatorHome extends StatefulWidget {
   final bool isDark;
@@ -103,6 +111,7 @@ class CalculatorHome extends StatefulWidget {
 class _CalculatorHomeState extends State<CalculatorHome> {
   String expr = "";
   String result = "";
+  final List<String> history = [];
 
   void _press(String v) => setState(() => expr += v);
   void _clear() => setState(() {
@@ -114,15 +123,63 @@ class _CalculatorHomeState extends State<CalculatorHome> {
   });
 
   void _equals() {
+    if (expr.isEmpty) return;
     try {
       final r = evaluate(expr);
       setState(() {
+        history.insert(0, "$expr = $r");
         result = r;
         expr = r;
       });
     } catch (_) {
       setState(() => result = "Error");
     }
+  }
+
+  void _showHistory() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        height: 400,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "History",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    history.clear();
+                    Navigator.pop(context);
+                  }),
+                  child: const Text("Clear All"),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: history.isEmpty
+                  ? const Center(child: Text("No calculations yet"))
+                  : ListView.builder(
+                      itemCount: history.length,
+                      itemBuilder: (context, i) => ListTile(
+                        title: Text(history[i]),
+                        onTap: () {
+                          setState(() => expr = history[i].split(' = ')[1]);
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -149,15 +206,17 @@ class _CalculatorHomeState extends State<CalculatorHome> {
       "%",
       "+",
     ];
-    final sciButtons = ["^", "√", "π", "sin", "cos", "tan"];
+    final sciButtons = ["sin", "cos", "tan", "√", "^", "π"];
     final buttons = widget.isScientific
         ? [...sciButtons, ...basicButtons]
         : basicButtons;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(widget.isScientific ? "Scientific" : "Calculator"),
         actions: [
+          IconButton(icon: const Icon(Icons.history), onPressed: _showHistory),
           IconButton(
             icon: Icon(widget.isDark ? Icons.dark_mode : Icons.light_mode),
             onPressed: widget.onToggle,
@@ -167,6 +226,7 @@ class _CalculatorHomeState extends State<CalculatorHome> {
       body: Column(
         children: [
           Expanded(
+            flex: 2,
             child: Container(
               padding: const EdgeInsets.all(24),
               alignment: Alignment.bottomRight,
@@ -178,6 +238,7 @@ class _CalculatorHomeState extends State<CalculatorHome> {
                     scrollDirection: Axis.horizontal,
                     child: Text(expr, style: const TextStyle(fontSize: 36)),
                   ),
+                  const SizedBox(height: 10),
                   Text(
                     result,
                     style: const TextStyle(fontSize: 24, color: Colors.grey),
@@ -187,36 +248,46 @@ class _CalculatorHomeState extends State<CalculatorHome> {
             ),
           ),
           const Divider(height: 1),
-          GridView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(8),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: widget.isScientific ? 5 : 4,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-            ),
-            itemCount: buttons.length + 1,
-            itemBuilder: (context, i) {
-              if (i < buttons.length) {
+          Expanded(
+            flex: 5,
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              physics: const ClampingScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: widget.isScientific ? 5 : 4,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: widget.isScientific ? 1.1 : 1.0,
+              ),
+              itemCount: buttons.length + 1,
+              itemBuilder: (context, i) {
+                bool isLast = i == buttons.length;
+                String label = isLast ? "=" : buttons[i];
+
                 return ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: EdgeInsets.zero,
+                    backgroundColor: isLast
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : null,
+                  ),
                   onPressed: () {
-                    if (buttons[i] == "C") return _clear();
-                    if (buttons[i] == "⌫") return _back();
-                    _press(buttons[i]);
+                    if (isLast) return _equals();
+                    if (label == "C") return _clear();
+                    if (label == "⌫") return _back();
+                    _press(label);
                   },
-                  child: Text(buttons[i]),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: widget.isScientific ? 15 : 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 );
-              }
-              return ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                ),
-                onPressed: _equals,
-                child: const Text("="),
-              );
-            },
+              },
+            ),
           ),
         ],
       ),
@@ -254,7 +325,7 @@ class _UnitConverterState extends State<UnitConverter> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Unit Converter (Length)")),
+      appBar: AppBar(title: const Text("Unit Converter")),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -262,7 +333,7 @@ class _UnitConverterState extends State<UnitConverter> {
             TextField(
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "Enter Value",
+                labelText: "Value",
                 border: OutlineInputBorder(),
               ),
               onChanged: (v) =>
@@ -301,40 +372,50 @@ class _UnitConverterState extends State<UnitConverter> {
   }
 }
 
-/* ---------- Updated Math Engine ---------- */
+/* ---------- Math Engine ---------- */
 
 String evaluate(String input) {
   if (input.isEmpty) return "0";
   String s = input.replaceAll('π', math.pi.toString());
 
-  // Basic tokenizing for Scientific
-  // Note: For production, a proper library like 'expressions' or 'math_expressions' is recommended.
-  // This is a simplified manual parser.
   try {
-    if (s.contains('√')) {
-      final num = double.parse(s.replaceAll('√', ''));
-      return math.sqrt(num).toStringAsFixed(4);
-    }
-    // Simple eval for standard math
+    final sciRegex = RegExp(r'(sin|cos|tan|√)(\d+\.?\d*)');
+    s = s.replaceAllMapped(sciRegex, (match) {
+      String func = match.group(1)!;
+      double val = double.parse(match.group(2)!);
+      double rad = val * (math.pi / 180);
+
+      switch (func) {
+        case 'sin':
+          return math.sin(rad).toString();
+        case 'cos':
+          return math.cos(rad).toString();
+        case 'tan':
+          return math.tan(rad).toString();
+        case '√':
+          return math.sqrt(val).toString();
+        default:
+          return val.toString();
+      }
+    });
+
     final tokens = tokenize(s);
     final postfix = toPostfix(tokens);
     final value = evalPostfix(postfix);
 
-    return (value % 1 == 0)
-        ? value.toInt().toString()
-        : value.toStringAsFixed(4);
+    if (value.isNaN || value.isInfinite) return "Error";
+
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    } else {
+      return value
+          .toStringAsFixed(4)
+          .replaceAll(RegExp(r'0+$'), '')
+          .replaceAll(RegExp(r'\.$'), '');
+    }
   } catch (e) {
     return "Error";
   }
-}
-
-// Reuse the tokenize, toPostfix, and evalPostfix from previous response...
-// (Ensure prec() includes '^' with priority 3)
-int prec(String o) {
-  if (o == "^") return 3;
-  if (o == "*" || o == "/") return 2;
-  if (o == "+" || o == "-") return 1;
-  return 0;
 }
 
 List<String> tokenize(String s) {
@@ -349,11 +430,18 @@ List<String> tokenize(String s) {
         t.add(n);
         n = "";
       }
-      if ("+-*/()^".contains(c)) t.add(c);
+      if ("+-*/()^%".contains(c)) t.add(c);
     }
   }
   if (n.isNotEmpty) t.add(n);
   return t;
+}
+
+int prec(String o) {
+  if (o == "^") return 3;
+  if (o == "*" || o == "/" || o == "%") return 2;
+  if (o == "+" || o == "-") return 1;
+  return 0;
 }
 
 List<String> toPostfix(List<String> t) {
@@ -366,7 +454,7 @@ List<String> toPostfix(List<String> t) {
       st.add(x);
     } else if (x == ")") {
       while (st.isNotEmpty && st.last != "(") out.add(st.removeLast());
-      st.removeLast();
+      if (st.isNotEmpty) st.removeLast();
     } else {
       while (st.isNotEmpty && prec(st.last) >= prec(x))
         out.add(st.removeLast());
@@ -384,6 +472,7 @@ double evalPostfix(List<String> p) {
     if (val != null) {
       st.add(val);
     } else {
+      if (st.length < 2) continue;
       final b = st.removeLast();
       final a = st.removeLast();
       switch (x) {
@@ -399,11 +488,14 @@ double evalPostfix(List<String> p) {
         case "/":
           st.add(a / b);
           break;
+        case "%":
+          st.add(a % b);
+          break;
         case "^":
           st.add(math.pow(a, b).toDouble());
           break;
       }
     }
   }
-  return st.single;
+  return st.isEmpty ? 0 : st.single;
 }
