@@ -23,7 +23,7 @@ A sleek, modern, and feature rich calculator built with **Flutter** and **Dart**
 
 * **Framework:** [Flutter](https://flutter.dev)
 * **Language:** [Dart](https://dart.dev)
-* **State Management:** `StatefulWidget` (State-driven UI)
+* **State Management:** `StatefulWidget` (State driven UI)
 * **Algorithm:** Custom Postfix (Reverse Polish Notation) evaluator.
 
 ---
